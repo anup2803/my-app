@@ -1,0 +1,33 @@
+{
+  "name": "restaurant-pos-system",
+  "version": "1.0.0",
+  "description": "Modern Restaurant POS System with React Frontend and Node.js Backend",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "test": "cd frontend && npm test",
+    "lint": "cd frontend && npm run lint"
+  },
+  "keywords": [
+    "pos",
+    "restaurant",
+    "react",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.8.2",
+    "@types/react-toastify": "^4.0.2",
+    "react-redux": "^9.2.0",
+    "react-toastify": "^11.0.5"
+  }
+}

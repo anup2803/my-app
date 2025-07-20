@@ -1,0 +1,280 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(WAITER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders    Order[]
+  payments  Payment[]
+  tables    Table[]
+  sessions  Session[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  WAITER
+  KITCHEN_STAFF
+}
+
+// Session Management
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Menu Management
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  image       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  items MenuItem[]
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  image       String?
+  categoryId  String
+  isActive    Boolean  @default(true)
+  isVegetarian Boolean @default(false)
+  isSpicy     Boolean  @default(false)
+  preparationTime Int?  // in minutes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  category    Category     @relation(fields: [categoryId], references: [id])
+  modifiers   Modifier[]
+  orderItems  OrderItem[]
+  ingredients IngredientUsage[]
+
+  @@map("menu_items")
+}
+
+model Modifier {
+  id        String   @id @default(cuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2) @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  menuItems MenuItem[]
+
+  @@map("modifiers")
+}
+
+// Table Management
+model Table {
+  id           String      @id @default(cuid())
+  number       Int         @unique
+  capacity     Int
+  status       TableStatus @default(AVAILABLE)
+  currentOrderId String?
+  assignedTo   String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  assignedUser User?       @relation(fields: [assignedTo], references: [id])
+  orders       Order[]
+
+  @@map("tables")
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+// Order Management
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  tableId       String?
+  customerName  String?
+  customerPhone String?
+  orderType     OrderType   @default(DINE_IN)
+  status        OrderStatus @default(PENDING)
+  subtotal      Decimal     @db.Decimal(10, 2)
+  tax           Decimal     @db.Decimal(10, 2) @default(0)
+  discount      Decimal     @db.Decimal(10, 2) @default(0)
+  total         Decimal     @db.Decimal(10, 2)
+  specialNotes  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  completedAt   DateTime?
+
+  // Relations
+  table         Table?      @relation(fields: [tableId], references: [id])
+  items         OrderItem[]
+  payments      Payment[]
+  createdBy     String
+  user          User        @relation(fields: [createdBy], references: [id])
+
+  @@map("orders")
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal  @db.Decimal(10, 2)
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+// Payment Management
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  gateway       PaymentGateway?
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  processedBy   String
+  user          User          @relation(fields: [processedBy], references: [id])
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  KHALTI
+  ESEWA
+  MOBILE_WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  STRIPE
+  RAZORPAY
+  CASH
+}
+
+// Inventory Management
+model Ingredient {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  unit          String   // kg, pieces, liters, etc.
+  currentStock  Decimal  @db.Decimal(10, 2) @default(0)
+  minStock      Decimal  @db.Decimal(10, 2) @default(0)
+  costPerUnit   Decimal  @db.Decimal(10, 2) @default(0)
+  supplier      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  usages        IngredientUsage[]
+
+  @@map("ingredients")
+}
+
+model IngredientUsage {
+  id           String   @id @default(cuid())
+  menuItemId   String
+  ingredientId String
+  quantity     Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([menuItemId, ingredientId])
+  @@map("ingredient_usages")
+}
+
+// Settings and Configuration
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String @default("string") // string, number, boolean, json
+
+  @@map("settings")
+} 
